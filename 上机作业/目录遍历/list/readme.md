@@ -21,6 +21,11 @@ ls -l num -h num
 ls -m
 -- #显式终止命令解析
 ```
+
+
+### 记录
+- 实现 ls -r 功能
+- 实现 ls -a 功能
 ### 参考链接
 - https://blog.csdn.net/zhuyi2654715/article/details/7605051
 
