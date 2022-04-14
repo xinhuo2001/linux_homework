@@ -4,6 +4,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<time.h>
+#include<unistd.h>
 
 /* i节点属性 */
 // struct stat st;
@@ -25,15 +26,16 @@ struct para
 };
 
 struct para MODE;
-
+const int MAX_PATH_LEN = 512;
+const int MAX_PATH_NUM = 10;
 
 //初始化MODE
 void initMode();
-//根据参数修改MODE
-void changeMode();
+//根据参数修改MODE 并返回路径数目
+int changeMode(int argc, char* argv[], char ipath[][MAX_PATH_LEN]);
 
 // 路径 + 打印形式 这里mode应该是结构体
-void manager(char* path, struct para mode);
+int manager(char* path, struct para mode);
 // 获取文件详细信息
 int getFileInfo(char* path, struct para mode);
 //详细打印stat结构体
@@ -45,19 +47,38 @@ int getTimeDays(time_t t);
 
 
 int main(int argc, char* argv[]) {
-    printf("argc:%d\n",argc);
-    for(int i = 0; i < argc; i++) {
-        printf("%s\t", argv[i]);
-    }
-    printf("\n");
-
     /* 分析参数 */
-    char* path = "/home/rock/test";
+    //char* path = "/home/rock/test"; //默认开始目录
+    // 获取当前路径
+    char path[MAX_PATH_LEN];
+    memset(path,0,MAX_PATH_LEN);
+    getcwd(path,sizeof(path));
+    puts(path);
     struct para mode;
+    char ipath[MAX_PATH_NUM][MAX_PATH_LEN];
     /* 调整MODE */
     initMode();
-    /* 根据参数结果选择调用的函数 */
-    manager(path,mode);
+    int inum = changeMode(argc,argv,ipath);
+    for(int i = 0; i < inum; i++) {
+        //printf("%s\n",ipath[i]);
+        char curpath[MAX_PATH_LEN];
+        memset(curpath,0,MAX_PATH_LEN);
+        //根非目录 加上当前路径
+        if(ipath[i][0] != '/') {
+            strcat(curpath,path);
+            strcat(curpath,"/");
+        }
+        strcat(curpath,ipath[i]);
+        int mret = manager(curpath,mode);
+        if(mret == -1) {
+            //该文件不是目录 直接调文件读取
+            getFileInfo(curpath,mode);
+        }
+    }
+    if(inum == 0) {
+        //没有额外参数 从当前目录遍历
+        manager(path,mode);
+    }
     return 0;
 }
 
@@ -77,13 +98,43 @@ void initMode()
     MODE._mnum = 0;
 }
 
-void manager(char* path, struct para mode)
+int changeMode(int argc, char* argv[], char ipath[][100])
+{
+    
+    printf("argc:%d\n",argc);
+    for(int i = 0; i < argc; i++) {
+        printf("%s\t", argv[i]);
+    }
+    printf("\n");
+
+    int ret = 0;
+    for(int i = 1; i < argc; i++) {
+        if(strcmp(argv[i],"-r") == 0) {
+            MODE._r = 1;
+        } else if(strcmp(argv[i],"-a") == 0) {
+            MODE._a = 1;
+        } else if(strcmp(argv[i], "-l") == 0) {
+            MODE._l = 1;
+            MODE._lnum = atoi(argv[++i]);
+        } else if(strcmp(argv[i],"-h") == 0) {
+            MODE._h = 1;
+            MODE._hnum = atoi(argv[++i]);
+        } else if(strcmp(argv[i],"-m") == 0) {
+            MODE._m = 1;
+            MODE._mnum = atoi(argv[++i]);
+        } else {
+            strcpy(ipath[ret++],argv[i]);
+        }
+    }
+    return ret;
+}
+
+int manager(char* path, struct para mode)
 {
     DIR* dirp = NULL;
     dirp = opendir(path);
     if(dirp == NULL) {
-        printf("error path:%s\n",path);
-        return;
+        return -1;
     }
 
    struct dirent * direntp = NULL;
@@ -102,6 +153,7 @@ void manager(char* path, struct para mode)
    }
    //printf("\n");
    closedir(dirp);
+   return 0;
 }
 
 int getFileInfo(char* path, struct para mode)
@@ -119,7 +171,7 @@ int getFileInfo(char* path, struct para mode)
     //读取文件信息
     struct stat statbuf;
     if(stat(path,&statbuf) == -1) {
-        printf("error\n");
+        printf("error:%s\n",path);
         return -1;
     }
 
