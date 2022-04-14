@@ -15,13 +15,13 @@
 
 struct para
 {
-    int _r;
-    int _a;
-    int _l;
+    int _r;  // 递归
+    int _a;  // 隐藏
+    int _l;  // 最小限制
     int _lnum;
-    int _h;
+    int _h;  // 最大限制
     int _hnum;
-    int _m;
+    int _m;  // 时间限制
     int _mnum;
 };
 
@@ -34,10 +34,10 @@ void initMode();
 //根据参数修改MODE 并返回路径数目
 int changeMode(int argc, char* argv[], char ipath[][MAX_PATH_LEN]);
 
-// 路径 + 打印形式 这里mode应该是结构体
-int manager(char* path, struct para mode);
+// 读取目录路径
+int manager(char* path);
 // 获取文件详细信息
-int getFileInfo(char* path, struct para mode);
+int getFileInfo(char* path);
 //详细打印stat结构体
 void showFileInfo(struct stat statbuf);
 //判断当前路径是否为隐藏路径
@@ -54,13 +54,12 @@ int main(int argc, char* argv[]) {
     memset(path,0,MAX_PATH_LEN);
     getcwd(path,sizeof(path));
     puts(path);
-    struct para mode;
     char ipath[MAX_PATH_NUM][MAX_PATH_LEN];
     /* 调整MODE */
     initMode();
     int inum = changeMode(argc,argv,ipath);
     for(int i = 0; i < inum; i++) {
-        //printf("%s\n",ipath[i]);
+        printf("%s\n",ipath[i]);
         char curpath[MAX_PATH_LEN];
         memset(curpath,0,MAX_PATH_LEN);
         //根非目录 加上当前路径
@@ -69,15 +68,15 @@ int main(int argc, char* argv[]) {
             strcat(curpath,"/");
         }
         strcat(curpath,ipath[i]);
-        int mret = manager(curpath,mode);
+        int mret = manager(curpath);
         if(mret == -1) {
             //该文件不是目录 直接调文件读取
-            getFileInfo(curpath,mode);
+            getFileInfo(curpath);
         }
     }
     if(inum == 0) {
         //没有额外参数 从当前目录遍历
-        manager(path,mode);
+        manager(path);
     }
     return 0;
 }
@@ -98,7 +97,7 @@ void initMode()
     MODE._mnum = 0;
 }
 
-int changeMode(int argc, char* argv[], char ipath[][100])
+int changeMode(int argc, char* argv[], char ipath[][MAX_PATH_LEN])
 {
     
     printf("argc:%d\n",argc);
@@ -122,14 +121,29 @@ int changeMode(int argc, char* argv[], char ipath[][100])
         } else if(strcmp(argv[i],"-m") == 0) {
             MODE._m = 1;
             MODE._mnum = atoi(argv[++i]);
+        } else if(argv[i][0] == '-' && argv[i][1] == '-'){
+            printf("-- out \n");
+            switch (argv[i][2])
+            {
+            case 'r':
+                MODE._r = 1;
+                break;
+            case 'a':
+                MODE._a = 1;
+            default:
+                break;
+            }
+            //结束
+            break;
         } else {
+            // printf("-- %s\n",argv[i]);
             strcpy(ipath[ret++],argv[i]);
         }
     }
     return ret;
 }
 
-int manager(char* path, struct para mode)
+int manager(char* path)
 {
     DIR* dirp = NULL;
     dirp = opendir(path);
@@ -147,7 +161,7 @@ int manager(char* path, struct para mode)
         strcat(dirbuf,"/");
         strcat(dirbuf,direntp->d_name);
        //打印文件信息
-       getFileInfo(dirbuf, mode);
+       getFileInfo(dirbuf);
        //更新文件信息
        direntp = readdir(dirp);
    }
@@ -156,10 +170,8 @@ int manager(char* path, struct para mode)
    return 0;
 }
 
-int getFileInfo(char* path, struct para mode)
+int getFileInfo(char* path)
 {
-
-
     int plen = strlen(path);
     int isHide = isHidePath(path,plen);
     //没有 -a 选项 跳过隐藏目录
@@ -183,7 +195,9 @@ int getFileInfo(char* path, struct para mode)
         }
         // 有 -r 递归选项 处理该目录
         if(MODE._r == 1) {
-            manager(path,mode);
+            manager(path);
+        } else {
+            printf("%s\n",path);
         }
         return -1;
     }
@@ -221,7 +235,7 @@ int getFileInfo(char* path, struct para mode)
             }
         }
 
-        printf("%lu\t%s\n", statbuf.st_ino,path);
+    printf("%lu\t%s\t%lu\n", statbuf.st_ino,path,statbuf.st_size);
     }
     return 0;
 }
