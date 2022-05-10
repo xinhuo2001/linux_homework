@@ -16,9 +16,14 @@ bool_url_list=`wget -q -O - "$web_url" \
 | sed -e 's/"red-btn"/\n/g' -e 's/ href="/https:/g' \
 | sed -e 's/"//g' \
 | awk 'NR > 1 {print $1}'` 
+
+tid=0
 #对每一本书进行下载
 for book_url in $bool_url_list
 do
+{
+    tid=`expr $tid + 1`
+    echo "------------------$tid"
     #拼凑目录页网址
     catalog_book_url="$book_url/#Catalog"
     # echo $catalog_book_url
@@ -35,11 +40,11 @@ do
     } 
     #获取该书本各目录链接
     #简化文本 到list.txt
-    tem="list1.txt"
+    tem="$tid"_"list.txt"
     catalog_s=`cat "$catalog" | grep '<a href="//read.qidian.com/chapter/'`
     echo $catalog_s > "$tem"
     #分割文本到list.txt
-    list_name="list_name.txt"
+    list_name="$tid"_"list_name.txt"
     sed 's/<h2 class="book_name"><a href="/\n/g' "$tem" | sed -e 's/" target.*">/ /g' | sed -e 's/<.*//g' -e 's/章 /章/g' > "$list_name"
     #删除文件第一空行 以及 删除过程文件
     sed -i '1d' "$list_name" && rm "$tem"
@@ -56,20 +61,17 @@ do
         else
             echo -e "$book_name $catalog_name download"
             catalog_url="https:$catalog_url"
-            # echo $catalog_url $catalog_name
-            content="content.txt"
-            # 下载小说网页
-            [ -r "index.html" ] && {
-                rm "index.html"
-            }
-            wget -q "$catalog_url" && mv "index.html" "$content"
+            #下载小说当前章节网页
+            content="$tid"_"content.txt"
+            wget -q -O "$content" "$catalog_url"
             #判断wget是否成功
             while [ $? != 0 ]
             do
-                wget -q "$catalog_url" && mv "index.html" "$content"
+                wget -q -O "$content" "$catalog_url"
             done
             # 截取文章内容
             cur_content=`cat "$content" | grep '<p> ' | sed -e 's/<p> */\n/g' -e 's/　//g' | grep -v '^ *$'`
+            rm "$content"
 #写入文件------------
 ed $book_name > /dev/null 2>&1 <<TOAST
 a
@@ -81,8 +83,10 @@ q
 TOAST
 #写入文件------------
         fi
-    done #while   
+    done #while 
+    rm   "$list_name" #删除总目录文件
     # exit 0 #下面准备下载新书
+}
 done #for
 
 
